@@ -1,0 +1,73 @@
+# **ceph-fuse挂载**
+
+登录： https://tstor.addpchina.com/
+
+**挂载管理 -- FUSE管理 - 新增IP白名单。**
+
+![img](https://docimg3.docs.qq.com/image/XxOEpOShkvBbBYOoU0z-HQ.png?w=1280&h=532.48)        **下载用户秘钥环。**
+
+![img](https://docimg5.docs.qq.com/image/tX3WetQghB71Jv6Up2BqKg.png?w=1280&h=517.4649766511008)                         ![img](https://docimg6.docs.qq.com/image/TkFw7hsi-ccg4926foigGQ.png?w=1280&h=688.2454969979987)        
+
+**安装ceph-fuse客户端**
+
+```shell
+# cat <<EOF >/etc/yum.repos.d/csp.repo
+[Csp-Repo]
+name=Csp-Repo
+baseurl=http://100.65.95.2:8010/current/cos-rpm-repo
+gpgcheck=0
+enabled=1
+EOF
+
+# yum install ceph-fuse
+```
+
+**把Tstor下载下来的秘钥环上传到客户端服务器。**
+
+```shell
+# cat /etc/ceph/ceph.conf 
+[global]
+	fsid = a17a62f3-e8d5-4aba-9cb2-9b126dc9f853
+	mon_host = v1:100.65.95.51:6789/0 v1:100.65.95.52:6789/0 v1:100.65.95.57:6789/0
+	
+# cat /etc/ceph/ceph.client.csp.keyring
+[client.csp]
+	key = AQB1kypiHl9oEBAAiRlM5HfZbAg2amXiCi36eg==
+```
+
+**命令行挂载**
+
+```shell
+# mkdir  /mnt/test02/
+
+# ceph-fuse -m 100.65.95.51:6789,100.65.95.52:6789,100.65.95.57:6789 -r /csp/test02 /mnt/test01/ -n client.csp --keyring=/etc/ceph/ceph.client.csp.keyring
+
+# df -h /mnt/test01
+Filesystem      Size  Used Avail Use% Mounted on
+ceph-fuse       435T   42G  435T   1% /mnt/test01
+```
+
+**自动挂载**
+
+```shell
+# tail -3 /etc/fstab 
+#DEVICE         PATH              TYPE         OPTIONS         DUMP  FSCK
+100.65.95.51:6789,100.65.95.52:6789,100.65.95.57:6789:/ /mnt/test02 fuse.ceph  ceph.name=client.csp,ceph.keyring=/etc/ceph/ceph.client.csp.keyring,ceph.client_mountpoint=/csp/test02,_netdev,defaults  0 0
+或者：
+none /mnt/test02 fuse.ceph ceph.name=client.csp,ceph.keyring=/etc/ceph/ceph.client.csp.keyring,ceph.client_mountpoint=/csp/test02,ceph.mon_host=100.65.95.52:6789,_netdev,defaults  0 0
+或者
+none  /mnt/test02 fuse.ceph  ceph.name=client.csp,ceph.conf=/etc/ceph/ceph.conf,ceph.keyring=/etc/ceph/ceph.client.csp.keyring,ceph.client_mountpoint=/csp/test02,_netdev,defaults  0 0
+
+# df -h /mnt/test02
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3        95G   70G   26G  73% /
+# mount -a
+# df -h /mnt/test02
+Filesystem      Size  Used Avail Use% Mounted on
+ceph-fuse       435T   42G  435T   1% /mnt/test02
+```
+
+参考：https://docs.ceph.com/en/latest/cephfs/mount-using-fuse/
+
+https://access.redhat.com/documentation/zh-cn/red_hat_ceph_storage/4/html/file_system_guide/mounting-the-ceph-file-system-as-a-fuse-client_fs
+
